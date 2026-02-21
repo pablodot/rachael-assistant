@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+
+# Docker
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code worktrees
+.claude/worktrees/
+
+# OS
+.DS_Store

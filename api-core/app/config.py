@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # LLM runtime (compatible con OpenAI)
     llm_base_url: str = "http://llm-runtime:11434/v1"
-    llm_model: str = "qwen2.5:14b"
+    llm_model: str = "qwen2.5:7b-q4_K_M"
     llm_timeout: int = 120
 
     # Browser agent (en host Linux)

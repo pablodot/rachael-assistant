@@ -1,0 +1,126 @@
+# Rachael – docker-compose.yml
+# Levanta los servicios del stack local-first.
+#
+# Servicios activos:
+#   memory-db    → PostgreSQL (memoria estructurada)
+#   vector-store → Qdrant     (memoria semántica / RAG)
+#
+# Placeholders (des-comentar cuando estén implementados):
+#   llm-runtime  → Ollama / vLLM
+#   api-core     → FastAPI orquestador
+#   worker       → Redis + workers proactivos
+#
+# browser-agent corre en el HOST, fuera de Docker (ver SPEC.md §12).
+
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # memory-db — PostgreSQL 16
+  # ──────────────────────────────────────────────────────────────────────────
+  memory-db:
+    build:
+      context: ./memory-db
+    image: rachael-memory-db:latest
+    container_name: rachael-memory-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       rachael
+      POSTGRES_USER:     rachael
+      POSTGRES_PASSWORD: rachael
+    ports:
+      - "5432:5432"
+    volumes:
+      - memory-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rachael -d rachael"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # vector-store — Qdrant
+  # ──────────────────────────────────────────────────────────────────────────
+  vector-store:
+    image: qdrant/qdrant:v1.9.4
+    container_name: rachael-vector-store
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # HTTP API / dashboard
+      - "6334:6334"   # gRPC
+    volumes:
+      - vector-store-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # llm-runtime — Ollama  [PLACEHOLDER – Misión 2]
+  # ──────────────────────────────────────────────────────────────────────────
+  # llm-runtime:
+  #   image: ollama/ollama:latest
+  #   container_name: rachael-llm-runtime
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - llm-models:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # api-core — FastAPI orquestador  [PLACEHOLDER – Misión 2]
+  # ──────────────────────────────────────────────────────────────────────────
+  # api-core:
+  #   build:
+  #     context: ./api-core
+  #   container_name: rachael-api-core
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     DATABASE_URL: postgresql://rachael:rachael@memory-db:5432/rachael
+  #     QDRANT_URL:   http://vector-store:6333
+  #     LLM_BASE_URL: http://llm-runtime:11434/v1
+  #   depends_on:
+  #     memory-db:
+  #       condition: service_healthy
+  #     vector-store:
+  #       condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # worker — Redis + workers proactivos  [PLACEHOLDER – Misión 4]
+  # ──────────────────────────────────────────────────────────────────────────
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: rachael-redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6379:6379"
+  #
+  # worker:
+  #   build:
+  #     context: ./worker
+  #   container_name: rachael-worker
+  #   restart: unless-stopped
+  #   environment:
+  #     REDIS_URL:    redis://redis:6379
+  #     API_CORE_URL: http://api-core:8000
+  #   depends_on:
+  #     - redis
+  #     - api-core
+
+volumes:
+  memory-db-data:
+  vector-store-data:
+  # llm-models:    # des-comentar con llm-runtime
+
+networks:
+  default:
+    name: rachael-net

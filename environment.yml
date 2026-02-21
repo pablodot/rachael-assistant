@@ -1,0 +1,16 @@
+name: rachael
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - fastapi==0.115.6
+    - uvicorn[standard]==0.34.0
+    - httpx==0.28.1
+    - pydantic==2.10.4
+    - pydantic-settings==2.7.0
+    - playwright==1.49.1
+    - qdrant-client==1.9.1
+    - psycopg2-binary

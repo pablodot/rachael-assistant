@@ -7,7 +7,7 @@ dependencies:
   - pip
   - pip:
     - fastapi==0.115.6
-    - uvicorn[standard]==0.34.0
+    - uvicorn[standard]==0.34.0  # pinado al más nuevo (api-core usaba 0.32.1, browser-agent 0.34.0)
     - httpx==0.28.1
     - pydantic==2.10.4
     - pydantic-settings==2.7.0

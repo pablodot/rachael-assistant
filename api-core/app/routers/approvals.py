@@ -15,14 +15,14 @@ router = APIRouter()
 
 @router.post("/approvals/{approval_id}/ok", response_model=ApprovalResponse)
 async def approve(approval_id: str) -> ApprovalResponse:
-    approval = store.get_approval(approval_id)
+    approval = await store.get_approval(approval_id)
     if not approval:
         raise HTTPException(status_code=404, detail="Aprobación no encontrada")
 
     if approval.approved:
         raise HTTPException(status_code=409, detail="Esta aprobación ya fue procesada")
 
-    resolved = store.resolve_approval(approval_id)
+    resolved = await store.resolve_approval(approval_id)
     if not resolved:
         raise HTTPException(status_code=500, detail="No se pudo resolver la aprobación")
 

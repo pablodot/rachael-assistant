@@ -4,11 +4,10 @@
 # Servicios activos:
 #   memory-db    → PostgreSQL (memoria estructurada)
 #   vector-store → Qdrant     (memoria semántica / RAG)
-#
-# Placeholders (des-comentar cuando estén implementados):
 #   llm-runtime  → Ollama / vLLM
 #   api-core     → FastAPI orquestador
-#   worker       → Redis + workers proactivos
+#   redis        → Cola de tareas arq
+#   worker       → arq worker + scheduler proactivo  (Misión 4)
 #
 # browser-agent corre en el HOST, fuera de Docker (ver SPEC.md §12).
 
@@ -111,26 +110,44 @@ services:
         condition: service_healthy
 
   # ──────────────────────────────────────────────────────────────────────────
-  # worker — Redis + workers proactivos  [PLACEHOLDER – Misión 4]
+  # redis — Cola de tareas
   # ──────────────────────────────────────────────────────────────────────────
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: rachael-redis
-  #   restart: unless-stopped
-  #   ports:
-  #     - "6379:6379"
-  #
-  # worker:
-  #   build:
-  #     context: ./worker
-  #   container_name: rachael-worker
-  #   restart: unless-stopped
-  #   environment:
-  #     REDIS_URL:    redis://redis:6379
-  #     API_CORE_URL: http://api-core:8000
-  #   depends_on:
-  #     - redis
-  #     - api-core
+  redis:
+    image: redis:7-alpine
+    container_name: rachael-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # worker — arq worker + scheduler proactivo  (Misión 4)
+  # ──────────────────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./worker
+    image: rachael-worker:latest
+    container_name: rachael-worker
+    restart: unless-stopped
+    environment:
+      REDIS_URL:                      redis://redis:6379
+      API_CORE_URL:                   http://api-core:8000
+      BROWSER_AGENT_URL:              http://host.docker.internal:8001
+      LLM_RUNTIME_URL:                http://llm-runtime:11434
+      HEALTH_CHECK_EVERY_N_MINUTES:   "5"
+      DAILY_BRIEFING_HOUR:            "8"
+      DAILY_BRIEFING_MINUTE:          "0"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+      api-core:
+        condition: service_started
 
 volumes:
   memory-db-data:

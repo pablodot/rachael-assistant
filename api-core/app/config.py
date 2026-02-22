@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     browser_agent_url: str = "http://host.docker.internal:8001"
     browser_timeout: int = 60
 
+    # Whisper STT
+    whisper_model: str = "base"  # tiny | base | small — configurable vía WHISPER_MODEL
+
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000

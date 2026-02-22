@@ -264,36 +264,42 @@ Arquitectura de memoria en dos capas:
 
 ## 17. Interfaz de Voz (Misión 6)
 
-Interacción por voz local mediante push-to-talk. Sin APIs externas, todo corre en local.
+Interfaz web con push-to-talk accesible remotamente vía VPN. Sin dependencias de audio en el cliente — todo el procesamiento de voz corre en el servidor.
+
+**Principio clave**: Web Speech API STT manda audio a Google → no usarla. En su lugar, el navegador graba y envía el audio al servidor donde Whisper transcribe localmente.
 
 ### Stack
 
-| Componente | Tecnología | Notas |
-|------------|------------|-------|
-| STT (voz → texto) | Whisper `base` | ~1GB VRAM, corre en GPU junto al LLM |
-| TTS (texto → voz) | Piper | Corre en CPU, muy rápido |
-| Interfaz | Python + sounddevice | Captura micrófono con push-to-talk |
-
-### Servicio: `voice-interface`
-
-Corre en el **host** (como el browser-agent), fuera de Docker — necesita acceso al micrófono y altavoces.
+| Componente | Tecnología | Dónde corre |
+|------------|------------|-------------|
+| Grabación de audio | `MediaRecorder` API | Navegador (cliente) |
+| STT (voz → texto) | Whisper `base` | Servidor (GPU) |
+| TTS (texto → voz) | `SpeechSynthesis` Web API | Navegador (cliente) |
+| UI | HTML + JS servido por api-core | Servidor |
 
 ### Flujo
 
 ```
-[usuario mantiene tecla/botón]
+[botón push-to-talk en navegador]
         ↓
-  graba audio (sounddevice)
+  MediaRecorder graba audio → blob
         ↓
-  Whisper transcribe → texto
+  POST /v1/voice/transcribe  (blob de audio)
         ↓
-  POST /v1/chat  →  api-core  →  LLM  →  plan  →  ejecución
+  Whisper en servidor → texto transcrito
+        ↓
+  POST /v1/chat → LLM → plan → ejecución
         ↓
   respuesta texto
         ↓
-  Piper sintetiza → audio
-        ↓
-  reproduce en altavoces
+  SpeechSynthesis.speak() en el navegador
+```
+
+### Nuevos endpoints en api-core
+
+```
+POST /v1/voice/transcribe   → recibe audio blob, devuelve texto (Whisper)
+GET  /                      → sirve la UI HTML con el botón push-to-talk
 ```
 
 ### Modelos Whisper según hardware
@@ -304,23 +310,16 @@ Corre en el **host** (como el browser-agent), fuera de Docker — necesita acces
 | `base` | ~500MB | Rápido | **Recomendado** |
 | `small` | ~1GB | Medio | Alta |
 
-### Dependencias
+### Nuevas dependencias en api-core
 
 ```
 openai-whisper
-sounddevice
-piper-tts
-numpy
+ffmpeg-python
 ```
 
-### API Contract (interno)
+### Acceso remoto
 
-El `voice-interface` no expone API HTTP — es un cliente que consume `/v1/chat` del api-core y reproduce la respuesta. Opcionalmente puede exponer:
-
-```
-POST /v1/voice/speak   → sintetiza y reproduce texto arbitrario
-GET  /v1/voice/status  → estado del micrófono y modelos cargados
-```
+La UI se sirve desde api-core en el puerto 8000. Accesible desde cualquier dispositivo conectado a la VPN en `http://<ip-servidor>:8000`.
 
 ---
 

@@ -50,49 +50,65 @@ services:
     volumes:
       - vector-store-data:/qdrant/storage
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333' 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   # ──────────────────────────────────────────────────────────────────────────
-  # llm-runtime — Ollama  [PLACEHOLDER – Misión 2]
+  # llm-runtime — Ollama
+  #
+  # Después de levantar, bajar el modelo elegido:
+  #   docker exec -it rachael-llm-runtime ollama pull <modelo>
+  #
+  # LOCAL (6GB VRAM — RTX 3060):
+  #   ollama pull qwen2.5:7b                      # ~4.5 GB — recomendado local
+  #   ollama pull qwen2.5:7b-instruct-q4_K_M      # ~4.5 GB — instruct explícito
+  #   ollama pull mistral:7b-instruct-q4_K_M      # ~4.1 GB — alternativa Mistral
+  #
+  # SERVIDOR IA (34GB VRAM — 2x 1080Ti + 3060):
+  #   ollama pull qwen2.5:32b-instruct-q5_K_M     # ~24 GB  — recomendado servidor
+  #   ollama pull qwen2.5:14b-instruct-q6_K       # ~12 GB  — opción intermedia
+  #   ollama pull qwen2.5:32b-instruct-q8_0       # ~34 GB  — máxima calidad
   # ──────────────────────────────────────────────────────────────────────────
-  # llm-runtime:
-  #   image: ollama/ollama:latest
-  #   container_name: rachael-llm-runtime
-  #   restart: unless-stopped
-  #   ports:
-  #     - "11434:11434"
-  #   volumes:
-  #     - llm-models:/root/.ollama
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities: [gpu]
+  llm-runtime:
+    image: ollama/ollama:latest
+    container_name: rachael-llm-runtime
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - llm-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   # ──────────────────────────────────────────────────────────────────────────
-  # api-core — FastAPI orquestador  [PLACEHOLDER – Misión 2]
+  # api-core — FastAPI orquestador
   # ──────────────────────────────────────────────────────────────────────────
-  # api-core:
-  #   build:
-  #     context: ./api-core
-  #   container_name: rachael-api-core
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     DATABASE_URL: postgresql://rachael:rachael@memory-db:5432/rachael
-  #     QDRANT_URL:   http://vector-store:6333
-  #     LLM_BASE_URL: http://llm-runtime:11434/v1
-  #   depends_on:
-  #     memory-db:
-  #       condition: service_healthy
-  #     vector-store:
-  #       condition: service_healthy
+  api-core:
+    build:
+      context: ./api-core
+    container_name: rachael-api-core
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://rachael:rachael@memory-db:5432/rachael
+      QDRANT_URL:   http://vector-store:6333
+      LLM_BASE_URL: http://llm-runtime:11434/v1
+      BROWSER_AGENT_URL: http://host.docker.internal:8001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      memory-db:
+        condition: service_healthy
+      vector-store:
+        condition: service_healthy
 
   # ──────────────────────────────────────────────────────────────────────────
   # worker — Redis + workers proactivos  [PLACEHOLDER – Misión 4]
@@ -119,7 +135,7 @@ services:
 volumes:
   memory-db-data:
   vector-store-data:
-  # llm-models:    # des-comentar con llm-runtime
+  llm-models:
 
 networks:
   default:

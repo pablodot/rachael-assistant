@@ -65,10 +65,14 @@ class LLMClient:
             {
                 "role": "system",
                 "content": (
-                    "Eres Rachael, una asistente de voz. "
-                    "Resume en una frase corta y natural lo que has hecho, para leerlo en voz alta. "
-                    "Sin tecnicismos, sin JSON, sin URLs completas. "
-                    "Responde solo con la frase, sin comillas ni explicaciones adicionales."
+                    "Eres Rachael, una asistente de voz. Tu respuesta se leerá en voz alta.\n"
+                    "Normas:\n"
+                    "- Si los resultados incluyen contenido extraído de una página (titulares, texto, noticias), "
+                    "resúmelo de forma natural y útil. Máximo 4-5 frases.\n"
+                    "- Si la tarea fue solo navegar o abrir una página, confirma brevemente en una frase.\n"
+                    "- Sin tecnicismos, sin JSON, sin URLs completas, sin asteriscos ni markdown.\n"
+                    "- Habla en primera persona como si fueras tú quien ha hecho la acción.\n"
+                    "- Responde solo con el texto a leer, sin comillas ni explicaciones adicionales."
                 ),
             },
             {
@@ -76,7 +80,7 @@ class LLMClient:
                 "content": f"Objetivo: {goal}\nResultados:\n{results_summary}",
             },
         ]
-        return await self.chat_completion(messages, json_mode=False, temperature=0.7, max_tokens=100)
+        return await self.chat_completion(messages, json_mode=False, temperature=0.7, max_tokens=300)
 
     async def get_plan_json(self, user_message: str) -> dict[str, Any]:
         """
@@ -228,14 +232,31 @@ class LLMClient:
             "    }\n"
             "  ]\n"
             "}\n\n"
-            "Herramientas disponibles:\n"
-            "- browser.open(url)      → abre una URL nueva\n"
-            "- browser.navigate(url)  → navega a otra URL en la misma pestaña\n"
-            "- browser.click(element_id)\n"
-            "- browser.type(element_id, text)\n"
-            "- browser.extract(selector)\n"
-            "- browser.screenshot()\n"
-            "- browser.close()\n\n"
+
+            "HERRAMIENTAS DISPONIBLES:\n"
+            "- browser.open(url)                    → abre una URL nueva\n"
+            "- browser.navigate(url)                → navega a otra URL en la misma pestaña\n"
+            "- browser.click(element_id)            → hace clic en un elemento por su id, name o texto\n"
+            "- browser.type(element_id, text)       → escribe texto en un campo\n"
+            "- browser.extract(selector)            → extrae el texto visible de la página o de un selector CSS\n"
+            "- browser.screenshot()                 → captura la pantalla actual\n"
+            "- browser.close()                      → cierra el navegador\n\n"
+
+            "PATRONES DE USO — cuándo usar browser.extract:\n"
+            "Usa browser.extract SIEMPRE que el usuario pida leer, resumir, buscar o consultar "
+            "el contenido de una página. Ejemplos:\n"
+            "- 'resumen de noticias' → open(url) + extract(selector='body')\n"
+            "- 'titulares de hoy' → open(url) + extract(selector='h1, h2, h3')\n"
+            "- 'qué dice esta web' → open(url) + extract(selector='body')\n"
+            "- 'busca el precio de X' → open(url) + extract(selector='body')\n"
+            "- 'dime el tiempo en Madrid' → open(url) + extract(selector='body')\n\n"
+
+            "SELECTOR en browser.extract:\n"
+            "- Usa 'h1, h2, h3' para titulares\n"
+            "- Usa 'body' para todo el contenido de la página\n"
+            "- Usa 'article' o 'main' para el contenido principal\n"
+            "- Usa 'title' solo para el título de la pestaña\n\n"
+
             "Marca needs_ok=true SÓLO en acciones irreversibles (checkout, envío de formulario, pago). "
             "No incluyas texto fuera del JSON."
         )

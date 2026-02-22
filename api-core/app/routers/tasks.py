@@ -23,19 +23,19 @@ async def enqueue_task(request: TaskEnqueueRequest) -> TaskResponse:
         goal=request.message,
         status=TaskStatus.pending,
     )
-    store.save_task(task)
+    await store.save_task(task)
 
     try:
         plan = await planner.build_plan(request.message)
     except Exception as exc:
         task.status = TaskStatus.failed
         task.error = str(exc)
-        store.save_task(task)
+        await store.save_task(task)
         raise HTTPException(status_code=502, detail=f"Error al generar el plan: {exc}")
 
     task.plan = plan
     task.goal = plan.goal
-    store.save_task(task)
+    await store.save_task(task)
 
     asyncio.create_task(executor.run(task))
 
@@ -44,7 +44,7 @@ async def enqueue_task(request: TaskEnqueueRequest) -> TaskResponse:
 
 @router.get("/tasks/{task_id}", response_model=TaskResponse)
 async def get_task(task_id: str) -> TaskResponse:
-    task = store.get_task(task_id)
+    task = await store.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     return _to_response(task)

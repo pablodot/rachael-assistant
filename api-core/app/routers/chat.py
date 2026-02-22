@@ -10,6 +10,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException
 
+from app.clients.qdrant_client import qdrant_chunks
 from app.executor import executor
 from app.models import ChatRequest, ChatResponse, TaskRecord, TaskStatus
 from app.planner import planner
@@ -26,7 +27,17 @@ async def chat(request: ChatRequest) -> ChatResponse:
         goal=request.message,
         status=TaskStatus.pending,
     )
-    store.save_task(task)
+    await store.save_task(task)
+
+    # Guardar mensaje del usuario en Qdrant (fire-and-forget, fallo silencioso)
+    asyncio.create_task(
+        qdrant_chunks.save_message(
+            text=request.message,
+            role="user",
+            session_id=request.session_id,
+            tags=["chat"],
+        )
+    )
 
     # Planificar de forma síncrona (el plan suele tardar 1-5 s)
     try:
@@ -34,12 +45,22 @@ async def chat(request: ChatRequest) -> ChatResponse:
     except Exception as exc:
         task.status = TaskStatus.failed
         task.error = str(exc)
-        store.save_task(task)
+        await store.save_task(task)
         raise HTTPException(status_code=502, detail=f"Error al generar el plan: {exc}")
 
     task.plan = plan
     task.goal = plan.goal
-    store.save_task(task)
+    await store.save_task(task)
+
+    # Guardar respuesta del asistente (goal del plan) en Qdrant
+    asyncio.create_task(
+        qdrant_chunks.save_message(
+            text=plan.goal,
+            role="assistant",
+            session_id=request.session_id,
+            tags=["chat", "plan"],
+        )
+    )
 
     # Lanzar ejecución en background (no bloqueante)
     asyncio.create_task(executor.run(task))

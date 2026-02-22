@@ -26,39 +26,39 @@ class Executor:
         El task ya debe tener task.plan asignado antes de llamar a este método.
         """
         task.status = TaskStatus.running
-        store.save_task(task)
+        await store.save_task(task)
 
         plan = task.plan
         assert plan is not None  # garantizado por el caller
 
         for idx, step in enumerate(plan.steps):
             task.current_step = idx
-            store.save_task(task)
+            await store.save_task(task)
 
             # 1. Pedir aprobación si es necesario
             if step.needs_ok:
                 approved = await self._request_approval(task, idx, step)
                 if not approved:
                     # El usuario no aprobó (timeout u otro motivo)
-                    self._record_step(task, idx, step, "skipped", error="Aprobación no recibida")
+                    await self._record_step(task, idx, step, "skipped", error="Aprobación no recibida")
                     task.status = TaskStatus.failed
                     task.error = f"Paso {idx} requería aprobación pero no se recibió."
-                    store.save_task(task)
+                    await store.save_task(task)
                     return
 
             # 2. Ejecutar la herramienta
             try:
                 output = await self._dispatch(step)
-                self._record_step(task, idx, step, "ok", output=output)
+                await self._record_step(task, idx, step, "ok", output=output)
             except Exception as exc:
-                self._record_step(task, idx, step, "error", error=str(exc))
+                await self._record_step(task, idx, step, "error", error=str(exc))
                 task.status = TaskStatus.failed
                 task.error = f"Error en paso {idx} ({step.tool}): {exc}"
-                store.save_task(task)
+                await store.save_task(task)
                 return
 
         task.status = TaskStatus.completed
-        store.save_task(task)
+        await store.save_task(task)
 
     # ------------------------------------------------------------------
     # Aprobaciones
@@ -73,11 +73,11 @@ class Executor:
             step_index=step_index,
             ok_prompt=step.ok_prompt or f"Aprobar paso {step_index}: {step.tool}?",
         )
-        store.save_approval(approval)
+        await store.save_approval(approval)
 
         task.status = TaskStatus.paused_for_approval
         task.pending_approval_id = approval.id
-        store.save_task(task)
+        await store.save_task(task)
 
         event = store.get_event(approval.id)
         assert event is not None
@@ -90,7 +90,7 @@ class Executor:
 
         task.status = TaskStatus.running
         task.pending_approval_id = None
-        store.save_task(task)
+        await store.save_task(task)
         return True
 
     # ------------------------------------------------------------------
@@ -109,7 +109,7 @@ class Executor:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _record_step(
+    async def _record_step(
         self,
         task: TaskRecord,
         idx: int,
@@ -127,7 +127,7 @@ class Executor:
             error=error,
         )
         task.results.append(result)
-        store.save_task(task)
+        await store.save_task(task)
 
 
 executor = Executor()

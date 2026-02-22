@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rachael</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 1.5rem 1rem 2rem;
+      gap: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      color: #666;
+      text-transform: lowercase;
+      position: fixed;
+      top: 1.25rem;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* ---- Log ---- */
+    #log {
+      width: 100%;
+      max-width: 640px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding-top: 3rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .bubble {
+      max-width: 85%;
+      padding: 0.65rem 1rem;
+      border-radius: 1.2rem;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .bubble.user {
+      align-self: flex-end;
+      background: #1a3a5c;
+      color: #c9e0f7;
+      border-bottom-right-radius: 0.3rem;
+    }
+
+    .bubble.assistant {
+      align-self: flex-start;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      border-bottom-left-radius: 0.3rem;
+    }
+
+    .bubble.system {
+      align-self: center;
+      background: transparent;
+      color: #555;
+      font-size: 0.8rem;
+      font-style: italic;
+    }
+
+    /* ---- Controls ---- */
+    #controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    #btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 2px solid #333;
+      background: #181818;
+      color: #bbb;
+      font-size: 1.9rem;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s, transform 0.12s, box-shadow 0.12s;
+      user-select: none;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #btn:hover { border-color: #555; }
+
+    #btn.recording {
+      background: #5c0000;
+      border-color: #ff3333;
+      color: #fff;
+      transform: scale(1.08);
+      box-shadow: 0 0 18px rgba(255, 51, 51, 0.45);
+    }
+
+    #btn.busy {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    #status {
+      font-size: 0.78rem;
+      color: #555;
+      min-height: 1.1em;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>rachael</h1>
+
+  <div id="log">
+    <div class="bubble system">Mantén pulsado el botón para hablar.</div>
+  </div>
+
+  <div id="controls">
+    <button id="btn" title="Push to talk — mantén pulsado">🎙️</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+  (() => {
+    const btn    = document.getElementById('btn');
+    const log    = document.getElementById('log');
+    const status = document.getElementById('status');
+
+    let recorder = null;
+    let chunks   = [];
+    let stream   = null;
+    let busy     = false;
+
+    /* ---- helpers ---- */
+
+    function addBubble(text, role) {
+      const d = document.createElement('div');
+      d.className = `bubble ${role}`;
+      d.textContent = text;
+      log.appendChild(d);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function setStatus(msg) { status.textContent = msg; }
+
+    function setBusy(val) {
+      busy = val;
+      btn.classList.toggle('busy', val);
+    }
+
+    /* ---- recording ---- */
+
+    async function startRecording() {
+      if (busy) return;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        setStatus('Error: sin acceso al micrófono.');
+        return;
+      }
+      chunks = [];
+      recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.start();
+      btn.classList.add('recording');
+      setStatus('Grabando…');
+    }
+
+    async function stopRecording() {
+      if (!recorder || recorder.state === 'inactive') return;
+      return new Promise(resolve => {
+        recorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          btn.classList.remove('recording');
+          const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+          await processAudio(blob);
+          resolve();
+        };
+        recorder.stop();
+      });
+    }
+
+    /* ---- pipeline ---- */
+
+    async function processAudio(blob) {
+      setBusy(true);
+
+      /* 1. Transcribir */
+      setStatus('Transcribiendo…');
+      let text;
+      try {
+        const fd = new FormData();
+        fd.append('file', blob, 'audio.webm');
+        const res = await fetch('/v1/voice/transcribe', { method: 'POST', body: fd });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        ({ text } = await res.json());
+        text = (text || '').trim();
+      } catch (e) {
+        setStatus(`Error al transcribir: ${e.message}`);
+        setBusy(false);
+        return;
+      }
+
+      if (!text) {
+        setStatus('No se detectó voz. Inténtalo de nuevo.');
+        setBusy(false);
+        return;
+      }
+
+      addBubble(text, 'user');
+
+      /* 2. Enviar a /v1/chat */
+      setStatus('Procesando…');
+      let taskId;
+      try {
+        const res = await fetch('/v1/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        ({ task_id: taskId } = await res.json());
+      } catch (e) {
+        setStatus(`Error al enviar mensaje: ${e.message}`);
+        setBusy(false);
+        return;
+      }
+
+      /* 3. Polling hasta completado / fallido */
+      setStatus('Esperando respuesta…');
+      let reply = null;
+      for (let i = 0; i < 60; i++) {
+        await sleep(1500);
+        try {
+          const res  = await fetch(`/v1/tasks/${taskId}`);
+          if (!res.ok) continue;
+          const task = await res.json();
+
+          if (task.status === 'completed') {
+            reply = extractReply(task);
+            break;
+          }
+          if (task.status === 'failed') {
+            setStatus(`Tarea fallida: ${task.error || 'error desconocido'}`);
+            setBusy(false);
+            return;
+          }
+        } catch { /* red — reintentar */ }
+      }
+
+      if (!reply) {
+        setStatus('Timeout: sin respuesta del agente.');
+        setBusy(false);
+        return;
+      }
+
+      addBubble(reply, 'assistant');
+      setStatus('');
+      setBusy(false);
+
+      /* 4. TTS con Web Speech API */
+      const utt = new SpeechSynthesisUtterance(reply);
+      utt.lang = 'es-ES';
+      speechSynthesis.speak(utt);
+    }
+
+    /* ---- helpers ---- */
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function extractReply(task) {
+      // Buscar output de texto en los resultados (último resultado con string)
+      for (let i = task.results.length - 1; i >= 0; i--) {
+        const r = task.results[i];
+        if (r.status === 'ok' && r.output !== null && r.output !== undefined) {
+          const s = typeof r.output === 'string' ? r.output : JSON.stringify(r.output);
+          if (s.trim()) return s.trim();
+        }
+      }
+      // Fallback: mostrar el objetivo de la tarea
+      return task.goal ? `Tarea completada: ${task.goal}` : 'Hecho.';
+    }
+
+    /* ---- eventos del botón — ratón ---- */
+    btn.addEventListener('mousedown',  e => { e.preventDefault(); startRecording(); });
+    btn.addEventListener('mouseup',    e => { e.preventDefault(); stopRecording();  });
+    btn.addEventListener('mouseleave', ()  => {
+      if (recorder && recorder.state !== 'inactive') stopRecording();
+    });
+
+    /* ---- eventos del botón — táctil ---- */
+    btn.addEventListener('touchstart', e => { e.preventDefault(); startRecording(); }, { passive: false });
+    btn.addEventListener('touchend',   e => { e.preventDefault(); stopRecording();  }, { passive: false });
+    btn.addEventListener('touchcancel',e => { e.preventDefault(); stopRecording();  }, { passive: false });
+  })();
+  </script>
+</body>
+</html>

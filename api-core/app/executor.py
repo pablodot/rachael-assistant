@@ -15,6 +15,7 @@ import uuid
 from typing import Any
 
 from app.clients.browser_client import browser_client
+from app.clients.llm_client import llm_client
 from app.models import ApprovalRecord, PlanStep, StepResult, TaskRecord, TaskStatus
 from app.store import store
 
@@ -58,6 +59,13 @@ class Executor:
                 return
 
         task.status = TaskStatus.completed
+        try:
+            task.reply = await llm_client.generate_reply(
+                task.goal,
+                [r.model_dump() for r in task.results],
+            )
+        except Exception:
+            task.reply = f"Hecho: {task.goal}"
         await store.save_task(task)
 
     # ------------------------------------------------------------------

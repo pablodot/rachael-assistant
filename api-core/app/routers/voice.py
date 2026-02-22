@@ -52,8 +52,13 @@ async def transcribe(
         tmp_path = tmp.name
 
     try:
-        result = await run_in_threadpool(model.transcribe, tmp_path)
-        return {"text": result["text"].strip()}
+        # faster-whisper devuelve (segments, info) — concatenamos los segmentos
+        def _transcribe(path: str) -> str:
+            segments, _ = model.transcribe(path, beam_size=5)
+            return " ".join(s.text for s in segments).strip()
+
+        text = await run_in_threadpool(_transcribe, tmp_path)
+        return {"text": text}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error al transcribir: {exc}") from exc
     finally:

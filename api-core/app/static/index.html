@@ -286,27 +286,25 @@
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     function extractReply(task) {
-      // Buscar output de texto en los resultados (último resultado con string)
-      for (let i = task.results.length - 1; i >= 0; i--) {
-        const r = task.results[i];
-        if (r.status === 'ok' && r.output !== null && r.output !== undefined) {
-          const s = typeof r.output === 'string' ? r.output : JSON.stringify(r.output);
-          if (s.trim()) return s.trim();
-        }
-      }
-      // Fallback: mostrar el objetivo de la tarea
-      return task.goal ? `Tarea completada: ${task.goal}` : 'Hecho.';
+      if (task.reply && task.reply.trim()) return task.reply.trim();
+      return task.goal ? `Hecho: ${task.goal}` : 'Tarea completada.';
+    }
+
+    /* Desbloquear Web Speech API en el primer gesto del usuario */
+    function unlockSpeech() {
+      const utt = new SpeechSynthesisUtterance('');
+      speechSynthesis.speak(utt);
     }
 
     /* ---- eventos del botón — ratón ---- */
-    btn.addEventListener('mousedown',  e => { e.preventDefault(); startRecording(); });
+    btn.addEventListener('mousedown',  e => { e.preventDefault(); unlockSpeech(); startRecording(); });
     btn.addEventListener('mouseup',    e => { e.preventDefault(); stopRecording();  });
     btn.addEventListener('mouseleave', ()  => {
       if (recorder && recorder.state !== 'inactive') stopRecording();
     });
 
     /* ---- eventos del botón — táctil ---- */
-    btn.addEventListener('touchstart', e => { e.preventDefault(); startRecording(); }, { passive: false });
+    btn.addEventListener('touchstart', e => { e.preventDefault(); unlockSpeech(); startRecording(); }, { passive: false });
     btn.addEventListener('touchend',   e => { e.preventDefault(); stopRecording();  }, { passive: false });
     btn.addEventListener('touchcancel',e => { e.preventDefault(); stopRecording();  }, { passive: false });
   })();

@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 import os
 
-import whisper
+from faster_whisper import WhisperModel
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     # Cargar modelo Whisper una sola vez al arrancar
     from fastapi.concurrency import run_in_threadpool
     app.state.whisper_model = await run_in_threadpool(
-        whisper.load_model, settings.whisper_model
+        lambda: WhisperModel(settings.whisper_model, device="auto", compute_type="int8")
     )
     yield
     await store.close()

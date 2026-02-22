@@ -60,6 +60,7 @@ class TaskRecord(BaseModel):
     results: list[StepResult] = Field(default_factory=list)
     current_step: int = 0
     error: str | None = None
+    reply: str | None = None  # respuesta en lenguaje natural generada por el LLM
     # id de aprobación pendiente (si status == paused_for_approval)
     pending_approval_id: str | None = None
 
@@ -110,6 +111,7 @@ class TaskResponse(BaseModel):
     results: list[StepResult]
     pending_approval_id: str | None = None
     error: str | None = None
+    reply: str | None = None
 
 
 class ApprovalResponse(BaseModel):

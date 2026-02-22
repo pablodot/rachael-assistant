@@ -2,13 +2,21 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.clients.qdrant_client import qdrant_chunks
+from app.config import settings
 from app.routers import approvals, browser_proxy, chat, tasks
+from app.store import store
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Aquí se podrán inicializar pools de conexión a DB cuando existan
+    # Inicializar pool de conexiones PostgreSQL
+    await store.initialize(settings.database_url)
+    # Conectar cliente Qdrant
+    qdrant_chunks.initialize()
     yield
+    # Cerrar pool al apagar
+    await store.close()
 
 
 app = FastAPI(

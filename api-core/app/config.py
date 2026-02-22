@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     #   llm_model = "qwen2.5:32b-instruct-q5_K_M" # ~24 GB   — recomendado servidor
     #   llm_model = "qwen2.5:14b-instruct-q6_K"   # ~12 GB   — opción intermedia
     #   llm_model = "qwen2.5:32b-instruct-q8_0"   # ~34 GB   — máxima calidad
-    llm_model: str = "qwen2.5:7b"
+    llm_model: str = "qwen2.5:7b-instruct-q4_K_M"
 
     # Browser agent (en host Linux)
     browser_agent_url: str = "http://host.docker.internal:8001"

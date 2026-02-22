@@ -16,5 +16,11 @@ venv/
 # Claude Code worktrees
 .claude/worktrees/
 
+# Chromium profile
+browser-agent/chromium-profile/
+
+# Documentos fuente
+*.pdf
+
 # OS
 .DS_Store

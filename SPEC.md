@@ -248,18 +248,82 @@ Arquitectura de memoria en dos capas:
 
 ### Misiones de desarrollo (paralelas)
 
-| Misión | Descripción |
-|--------|-------------|
-| Misión 1 | MVP del browser-agent |
-| Misión 2 | Planificador/ejecutor de api-core |
-| Misión 3 | Integración de memoria + vector store |
-| Misión 4 | Worker en segundo plano + scheduling |
-| Misión 5 | Escenarios de demo + tests automatizados |
+| Misión | Descripción | Estado |
+|--------|-------------|--------|
+| Misión 1 | MVP del browser-agent | ✅ Completada |
+| Misión 2 | Planificador/ejecutor de api-core | ✅ Completada |
+| Misión 3 | Integración de memoria + vector store | ✅ Completada |
+| Misión 4 | Worker en segundo plano + scheduling | Pendiente |
+| Misión 5 | Persistencia real en PostgreSQL + Qdrant | Pendiente |
+| Misión 6 | Interfaz de voz (STT + TTS) | **Próxima** |
+| Misión 7 | Escenarios de demo + tests automatizados | Pendiente |
 
 > Esta especificación está pensada para ser entregada a un agente de código autónomo (Claude Code o similar) para implementar cada servicio de forma independiente y en paralelo.
 
 ---
 
-## 17. Conclusión
+## 17. Interfaz de Voz (Misión 6)
+
+Interacción por voz local mediante push-to-talk. Sin APIs externas, todo corre en local.
+
+### Stack
+
+| Componente | Tecnología | Notas |
+|------------|------------|-------|
+| STT (voz → texto) | Whisper `base` | ~1GB VRAM, corre en GPU junto al LLM |
+| TTS (texto → voz) | Piper | Corre en CPU, muy rápido |
+| Interfaz | Python + sounddevice | Captura micrófono con push-to-talk |
+
+### Servicio: `voice-interface`
+
+Corre en el **host** (como el browser-agent), fuera de Docker — necesita acceso al micrófono y altavoces.
+
+### Flujo
+
+```
+[usuario mantiene tecla/botón]
+        ↓
+  graba audio (sounddevice)
+        ↓
+  Whisper transcribe → texto
+        ↓
+  POST /v1/chat  →  api-core  →  LLM  →  plan  →  ejecución
+        ↓
+  respuesta texto
+        ↓
+  Piper sintetiza → audio
+        ↓
+  reproduce en altavoces
+```
+
+### Modelos Whisper según hardware
+
+| Modelo | VRAM | Velocidad | Calidad |
+|--------|------|-----------|---------|
+| `tiny` | ~200MB | Muy rápido | Básica |
+| `base` | ~500MB | Rápido | **Recomendado** |
+| `small` | ~1GB | Medio | Alta |
+
+### Dependencias
+
+```
+openai-whisper
+sounddevice
+piper-tts
+numpy
+```
+
+### API Contract (interno)
+
+El `voice-interface` no expone API HTTP — es un cliente que consume `/v1/chat` del api-core y reproduce la respuesta. Opcionalmente puede exponer:
+
+```
+POST /v1/voice/speak   → sintetiza y reproduce texto arbitrario
+GET  /v1/voice/status  → estado del micrófono y modelos cargados
+```
+
+---
+
+## 19. Conclusión
 
 Rachael busca cerrar la brecha entre los LLMs reactivos y los agentes autónomos controlados, ofreciendo un sistema que actúa de forma proactiva respetando siempre los límites de aprobación definidos por el usuario.

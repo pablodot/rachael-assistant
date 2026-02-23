@@ -253,9 +253,9 @@ Arquitectura de memoria en dos capas:
 | Misión 1 | MVP del browser-agent | ✅ Completada |
 | Misión 2 | Planificador/ejecutor de api-core | ✅ Completada |
 | Misión 3 | Integración de memoria + vector store | ✅ Completada |
-| Misión 4 | Worker en segundo plano + scheduling | Pendiente |
-| Misión 5 | Persistencia real en PostgreSQL + Qdrant | Pendiente |
-| Misión 6 | Interfaz de voz (STT + TTS) | **Próxima** |
+| Misión 4 | Worker en segundo plano + scheduling | ✅ Completada |
+| Misión 5 | Persistencia real en PostgreSQL + Qdrant | ✅ Completada |
+| Misión 6 | Interfaz de voz (STT + TTS) + panel de navegador | ✅ Completada |
 | Misión 7 | Escenarios de demo + tests automatizados | Pendiente |
 
 > Esta especificación está pensada para ser entregada a un agente de código autónomo (Claude Code o similar) para implementar cada servicio de forma independiente y en paralelo.

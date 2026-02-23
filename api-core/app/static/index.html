@@ -76,6 +76,38 @@
       font-style: italic;
     }
 
+    /* ---- Browser panel ---- */
+    #browser-panel {
+      display: none;
+      width: 100%;
+      max-width: 640px;
+      border: 1px solid #2a2a2a;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: #111;
+    }
+
+    #browser-panel.visible { display: block; }
+
+    #browser-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      background: #1a1a1a;
+      border-bottom: 1px solid #2a2a2a;
+      font-size: 0.72rem;
+      color: #555;
+    }
+
+    #browser-bar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    #browser-panel img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
     /* ---- Controls ---- */
     #controls {
       display: flex;
@@ -132,6 +164,13 @@
     <div class="bubble system">Mantén pulsado el botón para hablar.</div>
   </div>
 
+  <div id="browser-panel">
+    <div id="browser-bar">
+      <span>🌐</span><span id="browser-url">navegador</span>
+    </div>
+    <img id="browser-img" src="" alt="Vista del navegador" />
+  </div>
+
   <div id="controls">
     <button id="btn" title="Push to talk — mantén pulsado">🎙️</button>
     <div id="status"></div>
@@ -139,9 +178,12 @@
 
   <script>
   (() => {
-    const btn    = document.getElementById('btn');
-    const log    = document.getElementById('log');
-    const status = document.getElementById('status');
+    const btn        = document.getElementById('btn');
+    const log        = document.getElementById('log');
+    const status     = document.getElementById('status');
+    const browserPanel = document.getElementById('browser-panel');
+    const browserImg   = document.getElementById('browser-img');
+    const browserUrl   = document.getElementById('browser-url');
 
     let recorder = null;
     let chunks   = [];
@@ -246,6 +288,8 @@
       /* 3. Polling hasta completado / fallido */
       setStatus('Esperando respuesta…');
       let reply = null;
+      let lastStep = -1;
+      let hasBrowser = false;
       for (let i = 0; i < 60; i++) {
         await sleep(1500);
         try {
@@ -253,11 +297,25 @@
           if (!res.ok) continue;
           const task = await res.json();
 
+          // Detectar si hay pasos de browser y refrescar screenshot cuando avanza el paso
+          const isBrowserTask = task.results && task.results.some(r => r.tool.startsWith('browser.'));
+          if (isBrowserTask && !hasBrowser) {
+            hasBrowser = true;
+            browserPanel.classList.add('visible');
+          }
+          if (hasBrowser && task.current_step !== lastStep) {
+            lastStep = task.current_step;
+            refreshScreenshot();
+          }
+
           if (task.status === 'completed') {
             reply = extractReply(task);
+            // Screenshot final cuando termina
+            if (hasBrowser) refreshScreenshot();
             break;
           }
           if (task.status === 'failed') {
+            if (hasBrowser) browserPanel.classList.remove('visible');
             setStatus(`Tarea fallida: ${task.error || 'error desconocido'}`);
             setBusy(false);
             return;
@@ -284,6 +342,22 @@
     /* ---- helpers ---- */
 
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    async function refreshScreenshot() {
+      try {
+        const res = await fetch('/v1/browser/screenshot');
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        // Liberar URL anterior para no acumular memoria
+        if (browserImg.src.startsWith('blob:')) URL.revokeObjectURL(browserImg.src);
+        browserImg.src = url;
+        // Actualizar la URL en la barra leyendo el atributo alt de la última pestaña
+        // (no tenemos la URL aquí, pero podemos poner algo informativo)
+        browserUrl.textContent = 'cargando…';
+        browserImg.onload = () => { browserUrl.textContent = 'navegador activo'; };
+      } catch { /* browser-agent no disponible o sin página abierta */ }
+    }
 
     function extractReply(task) {
       if (task.reply && task.reply.trim()) return task.reply.trim();

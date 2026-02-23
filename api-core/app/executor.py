@@ -59,13 +59,22 @@ class Executor:
                 return
 
         task.status = TaskStatus.completed
-        try:
-            task.reply = await llm_client.generate_reply(
-                task.goal,
-                [r.model_dump() for r in task.results],
-            )
-        except Exception:
-            task.reply = f"Hecho: {task.goal}"
+
+        # Si todos los pasos son reply.direct, usamos ese texto directamente
+        direct_replies = [
+            r.output for r in task.results
+            if r.tool == "reply.direct" and r.status == "ok" and r.output
+        ]
+        if direct_replies:
+            task.reply = str(direct_replies[0])
+        else:
+            try:
+                task.reply = await llm_client.generate_reply(
+                    task.goal,
+                    [r.model_dump() for r in task.results],
+                )
+            except Exception:
+                task.reply = f"Hecho: {task.goal}"
         await store.save_task(task)
 
     # ------------------------------------------------------------------
@@ -108,10 +117,13 @@ class Executor:
     async def _dispatch(self, step: PlanStep) -> Any:
         service, _, action = step.tool.partition(".")
 
+        if service == "reply" and action == "direct":
+            return step.args.get("text", "")
+
         if service == "browser":
             return await browser_client.dispatch(action, step.args)
 
-        raise ValueError(f"Servicio desconocido: {service!r}. Solo 'browser' está disponible.")
+        raise ValueError(f"Servicio desconocido: {service!r}.")
 
     # ------------------------------------------------------------------
     # Helpers

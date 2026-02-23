@@ -221,7 +221,7 @@ class LLMClient:
             "- 'slack' → https://app.slack.com\n"
             "Si el dominio no está en esta lista, infiere la URL más probable con https://.\n\n"
 
-            "Cuando el usuario te pida una tarea, responde ÚNICAMENTE con un JSON "
+            "Cuando el usuario te hable, responde ÚNICAMENTE con un JSON "
             "que siga este esquema exacto:\n"
             "{\n"
             '  "goal": "<descripción breve del objetivo>",\n'
@@ -236,6 +236,7 @@ class LLMClient:
             "}\n\n"
 
             "HERRAMIENTAS DISPONIBLES:\n"
+            "- reply.direct(text)                   → responde directamente con tu conocimiento, SIN abrir el navegador\n"
             "- browser.open(url)                    → abre una URL nueva\n"
             "- browser.navigate(url)                → navega a otra URL en la misma pestaña\n"
             "- browser.click(element_id)            → hace clic en un elemento por su id, name o texto\n"
@@ -244,20 +245,25 @@ class LLMClient:
             "- browser.screenshot()                 → captura la pantalla actual\n"
             "- browser.close()                      → cierra el navegador\n\n"
 
-            "PATRONES DE USO — cuándo usar browser.extract:\n"
-            "Usa browser.extract SIEMPRE que el usuario pida leer, resumir, buscar o consultar "
-            "el contenido de una página. Ejemplos:\n"
+            "CUÁNDO USAR reply.direct vs browser.*:\n"
+            "Usa reply.direct SIEMPRE que puedas responder con tu conocimiento: "
+            "preguntas generales, conversación, cálculos, traducciones, explicaciones, resúmenes de texto dado, etc.\n"
+            "Usa browser.* SOLO cuando el usuario pida EXPLÍCITAMENTE abrir una web, buscar en internet, "
+            "ver titulares de hoy, consultar información en tiempo real o interactuar con una página.\n"
+            "Ejemplos de reply.direct: '¿qué es el PIB?', 'traduce hello', 'cuánto es 15% de 340', "
+            "'explícame qué es docker', 'hola', 'gracias'.\n"
+            "Ejemplos de browser.*: 'abre el país', 'busca en google', 'dame los titulares de hoy', "
+            "'ve a amazon y busca auriculares'.\n\n"
+
+            "PATRONES DE USO con browser:\n"
             "- 'resumen de noticias' → open(url) + extract(selector='body')\n"
             "- 'titulares de hoy' → open(url) + extract(selector='h1, h2, h3')\n"
-            "- 'qué dice esta web' → open(url) + extract(selector='body')\n"
-            "- 'busca el precio de X' → open(url) + extract(selector='body')\n"
-            "- 'dime el tiempo en Madrid' → open(url) + extract(selector='body')\n\n"
+            "- 'busca el precio de X' → open(url) + extract(selector='body')\n\n"
 
             "SELECTOR en browser.extract:\n"
             "- Usa 'h1, h2, h3' para titulares\n"
             "- Usa 'body' para todo el contenido de la página\n"
-            "- Usa 'article' o 'main' para el contenido principal\n"
-            "- Usa 'title' solo para el título de la pestaña\n\n"
+            "- Usa 'article' o 'main' para el contenido principal\n\n"
 
             "Marca needs_ok=true SÓLO en acciones irreversibles (checkout, envío de formulario, pago). "
             "No incluyas texto fuera del JSON."

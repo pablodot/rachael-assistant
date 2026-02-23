@@ -45,6 +45,7 @@ app.include_router(chat.router, prefix="/v1", tags=["chat"])
 app.include_router(tasks.router, prefix="/v1", tags=["tasks"])
 app.include_router(approvals.router, prefix="/v1", tags=["approvals"])
 app.include_router(browser_proxy.router, prefix="/internal", tags=["internal"])
+app.include_router(browser_proxy.screenshot_router, prefix="/v1", tags=["browser"])
 
 
 @app.get("/health", tags=["health"])

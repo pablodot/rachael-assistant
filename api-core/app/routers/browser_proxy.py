@@ -15,6 +15,7 @@ import base64
 from app.clients.browser_client import browser_client
 
 router = APIRouter()
+screenshot_router = APIRouter()
 
 
 class BrowserProxyRequest(BaseModel):
@@ -34,7 +35,7 @@ async def browser_proxy(request: BrowserProxyRequest) -> dict[str, Any]:
     return {"action": request.action, "result": result}
 
 
-@router.get("/browser/screenshot")
+@screenshot_router.get("/browser/screenshot")
 async def browser_screenshot() -> Response:
     """Devuelve la screenshot actual del navegador como imagen PNG."""
     try:

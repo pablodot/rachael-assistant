@@ -72,6 +72,7 @@ class PostgreSQLStore:
             "results":             [r.model_dump() for r in task.results],
             "current_step":        task.current_step,
             "pending_approval_id": task.pending_approval_id,
+            "reply":               task.reply,
         })
         db_status = _STATUS_TO_DB.get(task.status, "pending")
 
@@ -131,6 +132,7 @@ class PostgreSQLStore:
             results=results,
             current_step=data.get("current_step", 0),
             pending_approval_id=data.get("pending_approval_id"),
+            reply=data.get("reply"),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )

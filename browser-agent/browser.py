@@ -256,6 +256,11 @@ class BrowserManager:
     async def extract(self, selector: Optional[str], extract_type: str) -> ExtractResponse:
         """Extract content from the page."""
         page = await self._ensure_open()
+        # Esperar a que la red esté idle para capturar páginas con JS pesado
+        try:
+            await page.wait_for_load_state("networkidle", timeout=8_000)
+        except Exception:
+            pass  # Si timeout, continuamos con lo que haya cargado
 
         if extract_type == "links":
             content = await page.evaluate(_LINKS_JS)
@@ -275,7 +280,18 @@ class BrowserManager:
             content = await page.evaluate(js)
         else:  # default: text
             if selector:
-                content = await page.locator(selector).first.inner_text(timeout=10_000)
+                # Get text from ALL matching elements (not just the first)
+                content = await page.evaluate(
+                    """(sel) => {
+                        const els = document.querySelectorAll(sel);
+                        return Array.from(els)
+                            .map(el => el.innerText.trim())
+                            .filter(t => t.length > 0)
+                            .slice(0, 60)
+                            .join('\\n');
+                    }""",
+                    selector,
+                )
             else:
                 content = await page.evaluate(_PAGE_TEXT_JS)
 

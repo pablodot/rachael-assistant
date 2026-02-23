@@ -59,4 +59,5 @@ def _to_response(task: TaskRecord) -> TaskResponse:
         results=task.results,
         pending_approval_id=task.pending_approval_id,
         error=task.error,
+        reply=task.reply,
     )

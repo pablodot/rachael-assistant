@@ -100,6 +100,7 @@ services:
       DATABASE_URL: postgresql://rachael:rachael@memory-db:5432/rachael
       QDRANT_URL:   http://vector-store:6333
       LLM_BASE_URL: http://llm-runtime:11434/v1
+      LLM_MODEL:    qwen2.5:14b-instruct-q8_0
       BROWSER_AGENT_URL: http://host.docker.internal:8001
     extra_hosts:
       - "host.docker.internal:host-gateway"

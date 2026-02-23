@@ -13,8 +13,8 @@ venv/
 .vscode/
 .idea/
 
-# Claude Code worktrees
-.claude/worktrees/
+# Claude Code
+.claude/
 
 # Chromium profile
 browser-agent/chromium-profile/
